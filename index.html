@@ -229,12 +229,12 @@
       text-align: right;
     }
     .calendar-scroll {
-      overflow-x: auto;
+      overflow-x: hidden;
       overscroll-behavior-inline: contain;
       border-top: 1px solid var(--line);
     }
     .calendar-grid {
-      min-width: 1160px;
+      min-width: 0;
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
       background: var(--line);
@@ -251,7 +251,7 @@
     }
     .day-cell {
       min-height: 68px;
-      padding: 5px;
+      padding: clamp(3px, .35vw, 5px);
       background: var(--paper);
     }
     .day-cell:nth-of-type(n+6) { border-top: 3px solid var(--soft-2); }
@@ -320,7 +320,7 @@
     .event-summary > strong {
       min-width: 0;
       overflow: hidden;
-      font-size: 13px;
+      font-size: clamp(11px, calc(.75vw + 4px), 13px);
       line-height: 1.2;
       letter-spacing: -.015em;
       text-overflow: ellipsis;
@@ -338,7 +338,7 @@
     .event-op {
       flex: 0 0 auto;
       color: var(--ink);
-      font-size: 13px;
+      font-size: clamp(11px, calc(.75vw + 4px), 13px);
       font-weight: 800;
       line-height: 1.2;
       letter-spacing: -.01em;
@@ -436,13 +436,15 @@
     }
     .filter-empty.is-visible { display: block; }
 
-    @media (max-width: 980px) {
+    @media (max-width: 1120px) {
       .toolbar { grid-template-columns: minmax(0, 1fr) auto; }
       .sector-filters { grid-column: 1 / -1; grid-row: 2; }
       .result-count { grid-column: 2; grid-row: 1; }
       .calendar-head { align-items: flex-start; flex-direction: column; gap: 8px; }
       .calendar-legend { width: 100%; max-width: none; justify-content: flex-start; }
       .legend-note { text-align: left; }
+      .event-summary { gap: 3px; padding-inline: 4px; }
+      .event-op small { font-size: 8px; }
     }
 
     @media (max-width: 640px) {
