@@ -93,39 +93,6 @@
       justify-items: end;
       gap: 7px;
     }
-    .refresh-control {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-    .refresh-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      min-height: 34px;
-      padding: 5px 11px;
-      color: var(--paper);
-      background: var(--ink);
-      border: 1px solid var(--ink);
-      border-radius: 7px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 800;
-    }
-    .refresh-button:hover { opacity: .86; }
-    .refresh-button:disabled { cursor: wait; opacity: .58; }
-    .refresh-button svg { width: 15px; height: 15px; }
-    .refresh-button[aria-busy="true"] svg { animation: refresh-spin .8s linear infinite; }
-    .refresh-status {
-      max-width: 260px;
-      color: var(--muted);
-      font-size: 12px;
-      text-align: right;
-    }
-    .refresh-status.is-error { color: #b33a32; }
-    @keyframes refresh-spin { to { transform: rotate(360deg); } }
 
     .calendar-panel {
       background: var(--paper);
@@ -496,8 +463,7 @@
       .page-header { align-items: flex-start; flex-direction: column; gap: 6px; }
       .header-meta { width: 100%; justify-items: start; }
       .header-note { text-align: left; }
-      .refresh-control { width: 100%; justify-content: flex-start; }
-      .refresh-status { max-width: none; text-align: left; }
+
       .calendar-panel { border-radius: 11px; }
       .toolbar {
         position: static;
@@ -579,7 +545,7 @@
       html, body { background: #fff; }
       .page-shell { width: 100%; padding: 0; }
       .toolbar { position: static; box-shadow: none; }
-      .refresh-control { display: none; }
+
       .calendar-scroll { overflow: visible; }
       .calendar-grid { min-width: 0; }
     }
@@ -598,13 +564,7 @@
       </div>
       <div class="header-meta">
         <p class="header-note">원본 합집합 406종목 · 남은 일정 <strong>350종목</strong><br>확정일 348 · 예상구간 2 · 평균 2026-07-23 07:18:20 · 최고 2026-07-23 07:18:20</p>
-        <div id="refresh-control" class="refresh-control" hidden>
-          <button id="refresh-button" class="refresh-button" type="button" aria-describedby="refresh-status">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.1A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg>
-            <span>엑셀 갱신</span>
-          </button>
-          <span id="refresh-status" class="refresh-status" role="status" aria-live="polite">저장된 ConsenDB.xlsx 반영</span>
-        </div>
+
       </div>
     </header>
 
@@ -16262,9 +16222,7 @@
     const sectorButtons = [...document.querySelectorAll('.sector-filter')];
     const result = document.querySelector('#result-count');
     const empty = document.querySelector('#filter-empty');
-    const refreshControl = document.querySelector('#refresh-control');
-    const refreshButton = document.querySelector('#refresh-button');
-    const refreshStatus = document.querySelector('#refresh-status');
+
     const elements = [...document.querySelectorAll('[data-record-id]')];
     const elementsById = new Map();
 
@@ -16331,68 +16289,7 @@
         card.classList.toggle('is-expanded', willExpand);
       });
     }
-    const refreshTime = (value) => {
-      if (!value) return '';
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    };
-    const setRefreshState = (payload) => {
-      const running = payload.status === 'running';
-      refreshButton.disabled = running;
-      refreshButton.setAttribute('aria-busy', String(running));
-      refreshStatus.classList.toggle('is-error', payload.status === 'failed');
-      if (running) refreshStatus.textContent = '엑셀 저장본 반영 중…';
-      else if (payload.status === 'succeeded') refreshStatus.textContent = '갱신 완료 · ' + refreshTime(payload.completed_at);
-      else if (payload.status === 'failed') {
-        refreshStatus.textContent = '갱신 실패 · ' + (payload.error || '로그를 확인해 주세요.');
-        refreshStatus.title = payload.error || '';
-      } else refreshStatus.textContent = '저장된 ConsenDB.xlsx 반영';
-    };
-    const readRefreshStatus = async () => {
-      const response = await fetch('/api/status', { cache: 'no-store' });
-      if (!response.ok) throw new Error('local refresh unavailable');
-      const payload = await response.json();
-      if (payload.app !== 'care-earnings-calendar-local') throw new Error('unexpected local server');
-      refreshControl.hidden = false;
-      setRefreshState(payload);
-      return payload;
-    };
-    const waitForRefresh = async () => {
-      while (true) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const payload = await readRefreshStatus();
-        if (payload.status === 'running') continue;
-        if (payload.status === 'succeeded') setTimeout(() => window.location.reload(), 650);
-        return;
-      }
-    };
-    refreshButton.addEventListener('click', async () => {
-      refreshButton.disabled = true;
-      refreshButton.setAttribute('aria-busy', 'true');
-      refreshStatus.classList.remove('is-error');
-      refreshStatus.textContent = '엑셀 저장본 반영 중…';
-      try {
-        const response = await fetch('/api/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Calendar-Refresh': '1' },
-          body: '{}',
-        });
-        const payload = await response.json();
-        setRefreshState(payload);
-        if (!response.ok && response.status !== 409) throw new Error(payload.error || '갱신 요청에 실패했습니다.');
-        await waitForRefresh();
-      } catch (error) {
-        refreshButton.disabled = false;
-        refreshButton.setAttribute('aria-busy', 'false');
-        refreshStatus.classList.add('is-error');
-        refreshStatus.textContent = '갱신 실패 · ' + error.message;
-      }
-    });
-    readRefreshStatus().then((payload) => {
-      if (payload.status === 'running') waitForRefresh();
-    }).catch(() => {
-      refreshControl.hidden = true;
-    });
+
     applyFilters();
   </script>
 </body>
