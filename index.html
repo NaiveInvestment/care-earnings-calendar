@@ -766,7 +766,7 @@
       <button type="button" class="event-summary" data-toggle-detail aria-expanded="false" aria-controls="detail-desk-005930" aria-label="삼성전자, 상세 펼치기"><strong><span class="confirmed-mark" aria-hidden="true"></span>삼성전자</strong><span class="event-op">OP 105.3조 <small></small></span></button>
       <div id="detail-desk-005930" class="inline-detail" hidden>
         <section class="inline-detail-section inline-consensus"><div class="inline-detail-heading"><strong>OP 컨센서스</strong><small>3Q26, 억원</small></div><div class="inline-metrics"><div><span>1M 평균</span><strong><b class="metric-number">105.3</b><small class="metric-unit">조</small></strong></div><div><span>3M 평균</span><strong><b class="metric-number">106.0</b><small class="metric-unit">조</small></strong></div><div><span>3M 최고</span><strong><b class="metric-number">114.2</b><small class="metric-unit">조</small></strong></div></div><p class="consensus-coverage" title="ConsenDB 202609, E310750.M, 영업이익참여증권사">3M OP 참여 증권사 <strong>20곳</strong></p></section>
-        <section class="inline-detail-section inline-schedules" aria-label="발표 일정"><div class="inline-schedule-row"><span>발표</span><strong>10/13, 확정</strong></div><div class="inline-schedule-row"><span>출처</span><strong>다올 10/6, p.1</strong></div></section>
+        <section class="inline-detail-section inline-schedules" aria-label="발표 일정"><div class="inline-schedule-row"><span>발표</span><strong>10/8, 발표 완료</strong></div><div class="inline-schedule-row"><span>출처</span><strong><a href="https://t.me/darthacking/154395" target="_blank" rel="noopener">AWAKE 잠정실적</a></strong></div></section>
         <div class="card-actions"><button class="view-button favorite-toggle" type="button" data-toggle-favorite="005930" aria-pressed="false" aria-label="삼성전자 관심종목 등록">☆ 관심종목 등록</button></div>
       </div></article></div></section>
 <section class="day-cell" data-calendar-date="2026-10-09"><header class="day-label"><time datetime="2026-10-09">10/9</time><span>금</span></header><div class="day-events"><span class="no-event">—</span></div></section>
@@ -2424,7 +2424,7 @@
       <button type="button" class="event-summary" data-toggle-detail aria-expanded="false" aria-controls="detail-mobile-005930" aria-label="삼성전자, 상세 펼치기"><strong><span class="confirmed-mark" aria-hidden="true"></span>삼성전자</strong><span class="event-op">OP 105.3조 <small></small></span></button>
       <div id="detail-mobile-005930" class="inline-detail" hidden>
         <section class="inline-detail-section inline-consensus"><div class="inline-detail-heading"><strong>OP 컨센서스</strong><small>3Q26, 억원</small></div><div class="inline-metrics"><div><span>1M 평균</span><strong><b class="metric-number">105.3</b><small class="metric-unit">조</small></strong></div><div><span>3M 평균</span><strong><b class="metric-number">106.0</b><small class="metric-unit">조</small></strong></div><div><span>3M 최고</span><strong><b class="metric-number">114.2</b><small class="metric-unit">조</small></strong></div></div><p class="consensus-coverage" title="ConsenDB 202609, E310750.M, 영업이익참여증권사">3M OP 참여 증권사 <strong>20곳</strong></p></section>
-        <section class="inline-detail-section inline-schedules" aria-label="발표 일정"><div class="inline-schedule-row"><span>발표</span><strong>10/13, 확정</strong></div><div class="inline-schedule-row"><span>출처</span><strong>다올 10/6, p.1</strong></div></section>
+        <section class="inline-detail-section inline-schedules" aria-label="발표 일정"><div class="inline-schedule-row"><span>발표</span><strong>10/8, 발표 완료</strong></div><div class="inline-schedule-row"><span>출처</span><strong><a href="https://t.me/darthacking/154395" target="_blank" rel="noopener">AWAKE 잠정실적</a></strong></div></section>
         <div class="card-actions"><button class="view-button favorite-toggle" type="button" data-toggle-favorite="005930" aria-pressed="false" aria-label="삼성전자 관심종목 등록">☆ 관심종목 등록</button></div>
       </div></article></div></section>
 <section class="agenda-day" data-agenda-date="2026-10-14" data-keep-empty="false"><header class="agenda-date"><time datetime="2026-10-14">10/14</time><span>수</span></header><div class="day-events"><article class="schedule-item event-card is-confirmed" data-inline-card data-record-id="061090" data-rank="730">
@@ -4450,6 +4450,18 @@
       const metrics = [...section.querySelectorAll('.inline-metrics strong')];
       for (let index = 0; index < metrics.length; index += 1) {
         setMetricValue(metrics[index], values[index]);
+      }
+      if (activeSchedules[card.dataset.recordId]?.source !== 'telegram-ir') {
+        const rows = [...card.querySelectorAll('.inline-schedules .inline-schedule-row')];
+        const announcement = rows.find(row => row.querySelector('span')?.textContent.trim() === '발표');
+        if (announcement) announcement.querySelector('strong').textContent = `${shortDate(actual.reportedAt)}, 발표 완료`;
+        const sourceRow = rows.find(row => row.querySelector('span')?.textContent.trim() === '출처');
+        if (sourceRow && actual.sourceUrl) {
+          const link = document.createElement('a');
+          link.href = actual.sourceUrl; link.target = '_blank'; link.rel = 'noopener';
+          link.textContent = 'AWAKE 잠정실적';
+          sourceRow.querySelector('strong').replaceChildren(link);
+        }
       }
     }
 
