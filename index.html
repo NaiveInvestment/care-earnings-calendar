@@ -436,6 +436,7 @@
     }
     .consensus-coverage { margin: 5px 0 0; font-size: 10px; line-height: 1.4; color: var(--muted); }
     .consensus-coverage strong { color: var(--ink); }
+    .event-card { container-type: inline-size; }
     .inline-actuals {
       margin-bottom: 8px;
       padding-bottom: 8px;
@@ -477,6 +478,11 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
+    }
+    @container (max-width: 230px) {
+      .inline-metrics { grid-template-columns: 1fr; }
+      .inline-metrics > div { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+      .inline-metrics strong { margin-top: 0; overflow: visible; text-overflow: clip; white-space: normal; }
     }
     .inline-schedules {
       margin-top: 7px;
