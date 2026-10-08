@@ -261,6 +261,11 @@
     .is-today .day-label time, .is-today .agenda-date time { text-decoration: underline; text-underline-offset: 3px; }
     .card-actions { margin-top: 7px; }
     .favorite-toggle { width: 100%; min-height: 32px; }
+    .favorite-sector-panel { grid-column: 1 / -1; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+    .favorite-sector-panel[hidden] { display: none; }
+    .favorite-sector-panel p { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+    .favorite-sector-options { display: flex; flex-wrap: wrap; gap: 5px; }
+    .favorite-sector-options .view-button { min-height: 38px; }
 
     .calendar-head {
       display: flex;
@@ -739,9 +744,16 @@
             </select>
           </label>
           <button id="favorites-only" class="view-button" type="button" aria-pressed="false" title="관심종목은 이 브라우저에 저장됩니다.">★ 관심종목 0</button>
+          <button id="favorite-sectors-only" class="view-button" type="button" aria-pressed="false" title="등록한 관심 섹터의 모든 종목을 봅니다.">★ 관심 섹터 0</button>
+          <button id="manage-favorite-sectors" class="view-button" type="button" aria-expanded="false" aria-controls="favorite-sector-panel">관심 섹터 관리</button>
           <button id="reset-filters" class="view-button" type="button" disabled>필터 초기화</button>
           <output id="view-status" class="view-note" aria-live="polite" hidden></output>
         </div>
+        <section id="favorite-sector-panel" class="favorite-sector-panel" aria-label="관심 섹터 관리" hidden>
+          <p>섹터를 여러 개 등록하면 소속 종목을 한꺼번에 볼 수 있습니다. 선택은 이 브라우저에 저장됩니다.</p>
+          <p>관심종목과 관심 섹터 보기를 함께 켜면 두 목록의 종목을 모두 표시합니다.</p>
+          <div id="favorite-sector-options" class="favorite-sector-options" role="group" aria-label="관심 섹터 등록 및 해제"></div>
+        </section>
       </div>
       <div class="calendar-head">
         <div class="calendar-title"><h2 id="calendar-heading">발표 일정</h2><span>10/5–11/30, 271종목</span></div>
@@ -4094,6 +4106,8 @@
 
     const STORAGE_KEY = 'hdh-earnings-calendar-2026q3-v1';
     const FAVORITES_KEY = 'hdh-earnings-calendar-favorites-v1';
+    const FAVORITE_SECTORS_KEY = 'hdh-earnings-calendar-favorite-sectors-v1';
+    const knownSectors = new Map(RECORDS.map(record => [record.sector_id, record.sector]));
     const CALENDAR_YEAR = 2026;
     const TELEGRAM_MAX_PAGES = 50;
     const SOURCE_PRIORITY = Object.freeze({
@@ -4104,9 +4118,11 @@
       actual: 100,
     });
 
-    const state = { query: '', sector: 'all', period: 'all', status: 'all', favoritesOnly: false };
+    const state = { query: '', sector: 'all', period: 'all', status: 'all', favoritesOnly: false, favoriteSectorsOnly: false };
     let favoritesStorageAvailable = true;
     let favoriteCodes = readFavoriteCodes();
+    let favoriteSectorsStorageAvailable = true;
+    let favoriteSectorIds = readFavoriteSectors();
     const search = document.querySelector('#company-search');
     const sectorButtons = [...document.querySelectorAll('.sector-filter')];
     const result = document.querySelector('#result-count');
@@ -4119,6 +4135,10 @@
     const periodButtons = [...document.querySelectorAll('[data-period]')];
     const statusSelect = document.querySelector('#announcement-status');
     const favoritesOnlyButton = document.querySelector('#favorites-only');
+    const favoriteSectorsOnlyButton = document.querySelector('#favorite-sectors-only');
+    const manageFavoriteSectorsButton = document.querySelector('#manage-favorite-sectors');
+    const favoriteSectorPanel = document.querySelector('#favorite-sector-panel');
+    const favoriteSectorOptions = document.querySelector('#favorite-sector-options');
     const resetFiltersButton = document.querySelector('#reset-filters');
     const viewStatus = document.querySelector('#view-status');
 
@@ -4152,9 +4172,62 @@
         button.textContent = selected ? '★ 관심종목 등록됨' : '☆ 관심종목 등록';
         button.setAttribute('aria-label', `${name} 관심종목 ${selected ? '해제' : '등록'}`);
       }
-      viewStatus.hidden = favoritesStorageAvailable;
-      viewStatus.textContent = favoritesStorageAvailable ? ''
-        : '브라우저 저장을 사용할 수 없어 관심종목이 이번 화면에만 유지됩니다.';
+      syncFavoriteStorageNotice();
+    }
+
+    function readFavoriteSectors() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(FAVORITE_SECTORS_KEY) || '[]');
+        favoriteSectorsStorageAvailable = true;
+        return new Set((Array.isArray(saved) ? saved : []).filter(id => typeof id === 'string' && knownSectors.has(id)));
+      } catch {
+        favoriteSectorsStorageAvailable = false;
+        return new Set();
+      }
+    }
+
+    function saveFavoriteSectors() {
+      try {
+        localStorage.setItem(FAVORITE_SECTORS_KEY, JSON.stringify([...favoriteSectorIds].sort()));
+        favoriteSectorsStorageAvailable = true;
+      } catch {
+        favoriteSectorsStorageAvailable = false;
+      }
+    }
+
+    function syncFavoriteStorageNotice() {
+      const unavailable = [];
+      if (!favoritesStorageAvailable) unavailable.push('관심종목');
+      if (!favoriteSectorsStorageAvailable) unavailable.push('관심 섹터');
+      viewStatus.hidden = unavailable.length === 0;
+      viewStatus.textContent = unavailable.length
+        ? `브라우저 저장을 사용할 수 없어 ${unavailable.join(', ')}가 이번 화면에만 유지됩니다.` : '';
+    }
+
+    function syncFavoriteSectorButtons() {
+      for (const button of favoriteSectorOptions.querySelectorAll('[data-toggle-favorite-sector]')) {
+        const id = button.dataset.toggleFavoriteSector;
+        const selected = favoriteSectorIds.has(id);
+        button.setAttribute('aria-pressed', String(selected));
+        button.textContent = `${selected ? '★' : '☆'} ${knownSectors.get(id)}`;
+        button.setAttribute('aria-label', `${knownSectors.get(id)} 관심 섹터 ${selected ? '해제' : '등록'}`);
+      }
+      syncFavoriteStorageNotice();
+    }
+
+    for (const [id, name] of knownSectors) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'view-button';
+      button.dataset.toggleFavoriteSector = id;
+      button.textContent = `☆ ${name}`;
+      favoriteSectorOptions.append(button);
+    }
+
+    function matchesPersonalFavorites(record) {
+      if (!state.favoritesOnly && !state.favoriteSectorsOnly) return true;
+      return (state.favoritesOnly && favoriteCodes.has(String(record.code)))
+        || (state.favoriteSectorsOnly && favoriteSectorIds.has(record.sector_id));
     }
 
     function currentWeekStart(now = new Date()) {
@@ -4319,7 +4392,7 @@
       const status = card.classList.contains('has-actual') ? 'reported'
         : card.classList.contains('is-confirmed') ? 'confirmed' : 'expected';
       return (state.status === 'all' || status === state.status)
-        && (!state.favoritesOnly || favoriteCodes.has(String(record.code)));
+        && matchesPersonalFavorites(record);
     }
 
     function applyFilters() {
@@ -4332,7 +4405,7 @@
       const matched = scopedRecords.filter(recordMatch);
       const matchedIds = new Set(matched.map((record) => String(record.id)));
       const compactWeeks = Boolean(state.query.trim()) || state.sector !== 'all'
-        || state.status !== 'all' || state.favoritesOnly;
+        || state.status !== 'all' || state.favoritesOnly || state.favoriteSectorsOnly;
       const matchedWeeks = new Set(matched.map(record => weekStartForDate(cardDate(elementsById.get(String(record.id))[0]))));
       for (const [id, group] of elementsById) {
         for (const element of group) element.hidden = !matchedIds.has(id);
@@ -4361,9 +4434,11 @@
       favoritesOnlyButton.setAttribute('aria-pressed', String(state.favoritesOnly));
       const favoriteCount = displayedRecords.filter(record => favoriteCodes.has(String(record.code))).length;
       favoritesOnlyButton.textContent = `★ 관심종목 ${favoriteCount}`;
+      favoriteSectorsOnlyButton.setAttribute('aria-pressed', String(state.favoriteSectorsOnly));
+      favoriteSectorsOnlyButton.textContent = `★ 관심 섹터 ${favoriteSectorIds.size}`;
       statusSelect.value = state.status;
       resetFiltersButton.disabled = !state.query && state.sector === 'all' && state.period === 'all'
-        && state.status === 'all' && !state.favoritesOnly;
+        && state.status === 'all' && !state.favoritesOnly && !state.favoriteSectorsOnly;
       updateCalendarCounts();
     }
 
@@ -5192,8 +5267,30 @@
       state.favoritesOnly = !state.favoritesOnly;
       applyFilters();
     });
+    favoriteSectorsOnlyButton.addEventListener('click', () => {
+      state.favoriteSectorsOnly = !state.favoriteSectorsOnly;
+      if (state.favoriteSectorsOnly && favoriteSectorIds.size === 0) {
+        favoriteSectorPanel.hidden = false;
+        manageFavoriteSectorsButton.setAttribute('aria-expanded', 'true');
+      }
+      applyFilters();
+    });
+    manageFavoriteSectorsButton.addEventListener('click', () => {
+      favoriteSectorPanel.hidden = !favoriteSectorPanel.hidden;
+      manageFavoriteSectorsButton.setAttribute('aria-expanded', String(!favoriteSectorPanel.hidden));
+    });
+    favoriteSectorOptions.addEventListener('click', event => {
+      const button = event.target.closest('[data-toggle-favorite-sector]');
+      if (!button) return;
+      const id = button.dataset.toggleFavoriteSector;
+      if (favoriteSectorIds.has(id)) favoriteSectorIds.delete(id);
+      else favoriteSectorIds.add(id);
+      saveFavoriteSectors();
+      syncFavoriteSectorButtons();
+      applyFilters();
+    });
     resetFiltersButton.addEventListener('click', () => {
-      Object.assign(state, {query:'', sector:'all', period:'all', status:'all', favoritesOnly:false});
+      Object.assign(state, {query:'', sector:'all', period:'all', status:'all', favoritesOnly:false, favoriteSectorsOnly:false});
       search.value = '';
       for (const button of sectorButtons) button.setAttribute('aria-pressed', String(button.dataset.sector === 'all'));
       applyFilters();
@@ -5209,9 +5306,11 @@
       applyFilters();
     });
     window.addEventListener('storage', event => {
-      if (event.key !== FAVORITES_KEY && event.key !== null) return;
-      favoriteCodes = readFavoriteCodes();
+      if (event.key !== FAVORITES_KEY && event.key !== FAVORITE_SECTORS_KEY && event.key !== null) return;
+      if (event.key === FAVORITES_KEY || event.key === null) favoriteCodes = readFavoriteCodes();
+      if (event.key === FAVORITE_SECTORS_KEY || event.key === null) favoriteSectorIds = readFavoriteSectors();
       syncFavoriteButtons();
+      syncFavoriteSectorButtons();
       applyFilters();
     });
     for (const button of sectorButtons) {
@@ -5254,6 +5353,7 @@
     latestUpdate.textContent = initialSourceTime || timestampInKst();
     updateSourceTimes();
     syncFavoriteButtons();
+    syncFavoriteSectorButtons();
     setStatus(
       `초기 반영 완료 ,  ConsenDB ${initialConsensusCount}종목 ,  일정 확정 ${initialScheduleSummary.applied}종목 ,  잠정실적 ${initialActualCount}종목`,
       'success',
